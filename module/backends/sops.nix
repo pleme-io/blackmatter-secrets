@@ -2,11 +2,8 @@
 { config, lib, ... }:
 let
   cfg = config.blackmatter.components.secrets;
+  slib = import ../lib.nix { inherit lib; };
   sopsEnabled = cfg.enable && cfg.backend == "sops";
-
-  # Template content: file takes precedence over inline
-  effectiveContent = tmpl:
-    if tmpl.file != null then builtins.readFile tmpl.file else tmpl.content;
 in {
   config = lib.mkIf sopsEnabled {
     # ── Map unified secrets → sops.secrets ────────────────────────────
@@ -29,18 +26,13 @@ in {
 
     # ── Map unified templates → sops.templates ───────────────────────
     sops.templates = lib.mapAttrs' (name: tmpl:
-      let
-        raw = effectiveContent tmpl;
-        replaced = lib.foldlAttrs (acc: sName: _:
-          builtins.replaceStrings
-            [ (cfg.placeholder.${sName} or "") ]
-            [ (config.sops.placeholder.${sName} or "") ]
-            acc
-        ) raw cfg.secrets;
-      in
       lib.nameValuePair name ({
         inherit (tmpl) mode;
-        content = replaced;
+        content = slib.replaceAllPlaceholders {
+          inherit cfg;
+          backendPlaceholders = config.sops.placeholder;
+          content = slib.effectiveContent tmpl;
+        };
       }
       // lib.optionalAttrs (tmpl.path != "") { inherit (tmpl) path; }
       // lib.optionalAttrs (tmpl.owner != "") { inherit (tmpl) owner; }

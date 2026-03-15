@@ -2,16 +2,13 @@
 { config, lib, ... }:
 let
   cfg = config.blackmatter.components.secrets;
+  slib = import ../lib.nix { inherit lib; };
   akeylessEnabled = cfg.enable && cfg.backend == "akeyless";
   prefix = cfg.akeyless.pathPrefix;
 
   # Prepend the vault path prefix to a secret name
   # "github/token" → "/pleme/github/token"
   vaultPath = name: "${prefix}/${name}";
-
-  # Template content: file takes precedence over inline
-  effectiveContent = tmpl:
-    if tmpl.file != null then builtins.readFile tmpl.file else tmpl.content;
 in {
   config = lib.mkIf akeylessEnabled {
     akeyless.enable = true;
@@ -41,18 +38,15 @@ in {
 
     # ── Map unified templates → akeyless.templates ───────────────────
     akeyless.templates = lib.mapAttrs' (name: tmpl:
-      let
-        raw = effectiveContent tmpl;
-        replaced = lib.foldlAttrs (acc: sName: _:
-          builtins.replaceStrings
-            [ (cfg.placeholder.${sName} or "") ]
-            [ (config.akeyless.placeholder.${vaultPath sName} or "") ]
-            acc
-        ) raw cfg.secrets;
-      in
       lib.nameValuePair name ({
         inherit (tmpl) mode;
-        content = replaced;
+        content = slib.replaceAllPlaceholders {
+          inherit cfg;
+          backendPlaceholders = lib.mapAttrs (sName: _:
+            config.akeyless.placeholder.${vaultPath sName} or ""
+          ) cfg.secrets;
+          content = slib.effectiveContent tmpl;
+        };
       }
       // lib.optionalAttrs (tmpl.path != "") { inherit (tmpl) path; }
       // lib.optionalAttrs (tmpl.owner != "") { inherit (tmpl) owner; }

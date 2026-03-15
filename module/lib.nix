@@ -121,6 +121,22 @@ rec {
   mkNixosPath = name:
     "/run/secrets/${lib.replaceStrings ["/"] ["-"] name}";
 
+  # ── Template helpers ──────────────────────────────────────────────
+
+  # Resolve template content: file takes precedence over inline content.
+  effectiveContent = tmpl:
+    if tmpl.file != null then builtins.readFile tmpl.file else tmpl.content;
+
+  # Replace unified placeholders with backend-specific ones.
+  # backendPlaceholders: attrset mapping secret name → backend placeholder string
+  replaceAllPlaceholders = { cfg, backendPlaceholders, content }:
+    lib.foldlAttrs (acc: sName: _:
+      builtins.replaceStrings
+        [ (cfg.placeholder.${sName} or "") ]
+        [ (backendPlaceholders.${sName} or "") ]
+        acc
+    ) content cfg.secrets;
+
   # Shorthand: declare a secret that writes to ~/.config/{name}
   # Usage: secrets = mkSecrets homeDir [ "github/token" "attic/token" "db/password" ];
   mkSecrets = homeDir: names:
