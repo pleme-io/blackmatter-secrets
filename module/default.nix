@@ -63,9 +63,8 @@ in {
 
     placeholder = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
-      readOnly = true;
       default = {};
-      description = "Auto-generated placeholders for template substitution.";
+      description = "Auto-generated placeholders for template substitution. Do not set manually.";
     };
 
     # ── Backend-specific config ────────────────────────────────────
