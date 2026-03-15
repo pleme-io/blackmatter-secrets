@@ -10,30 +10,37 @@ let
 in {
   config = lib.mkIf sopsEnabled {
     # Map unified secrets → sops.secrets
+    # Note: sops-nix home-manager module does NOT support owner/group/restartUnits/reloadUnits.
+    # Only include fields that sops-nix actually defines for the current platform.
     sops.secrets = lib.mapAttrs' (name: secret:
-      lib.nameValuePair name {
-        inherit (secret) path mode owner group;
-        # sops-specific: restartUnits/reloadUnits if available
-        restartUnits = secret.restartUnits;
-        reloadUnits = secret.reloadUnits;
+      lib.nameValuePair name ({
+        inherit (secret) path mode;
       }
+      // lib.optionalAttrs (secret.owner != "") { inherit (secret) owner; }
+      // lib.optionalAttrs (secret.group != "") { inherit (secret) group; }
+      // lib.optionalAttrs (secret.restartUnits != []) { inherit (secret) restartUnits; }
+      // lib.optionalAttrs (secret.reloadUnits != []) { inherit (secret) reloadUnits; }
+      )
     ) cfg.secrets;
 
     # Map unified templates → sops.templates
     sops.templates = lib.mapAttrs' (name: tmpl:
-      lib.nameValuePair name {
-        inherit (tmpl) path mode owner group;
-        content = let
-          raw = effectiveContent tmpl;
-          # Replace unified placeholders with sops placeholders
-          replaced = lib.foldlAttrs (acc: sName: _:
-            builtins.replaceStrings
-              [ (cfg.placeholder.${sName} or "") ]
-              [ (config.sops.placeholder.${sName} or "") ]
-              acc
-          ) raw cfg.secrets;
-        in replaced;
+      let
+        raw = effectiveContent tmpl;
+        replaced = lib.foldlAttrs (acc: sName: _:
+          builtins.replaceStrings
+            [ (cfg.placeholder.${sName} or "") ]
+            [ (config.sops.placeholder.${sName} or "") ]
+            acc
+        ) raw cfg.secrets;
+      in
+      lib.nameValuePair name ({
+        inherit (tmpl) path mode;
+        content = replaced;
       }
+      // lib.optionalAttrs (tmpl.owner != "") { inherit (tmpl) owner; }
+      // lib.optionalAttrs (tmpl.group != "") { inherit (tmpl) group; }
+      )
     ) cfg.templates;
 
     # sops-specific backend config passthrough

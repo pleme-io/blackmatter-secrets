@@ -17,29 +17,36 @@ in {
     akeyless.enable = true;
 
     # Map unified secrets → akeyless.secrets (with path prefix)
+    # Only include optional fields when they have non-default values.
     akeyless.secrets = lib.mapAttrs' (name: secret:
-      lib.nameValuePair (vaultPath name) {
-        inherit (secret) path mode owner group;
-        restartUnits = secret.restartUnits;
-        reloadUnits = secret.reloadUnits;
+      lib.nameValuePair (vaultPath name) ({
+        inherit (secret) path mode;
       }
+      // lib.optionalAttrs (secret.owner != "") { inherit (secret) owner; }
+      // lib.optionalAttrs (secret.group != "") { inherit (secret) group; }
+      // lib.optionalAttrs (secret.restartUnits != []) { inherit (secret) restartUnits; }
+      // lib.optionalAttrs (secret.reloadUnits != []) { inherit (secret) reloadUnits; }
+      )
     ) cfg.secrets;
 
     # Map unified templates → akeyless.templates
     akeyless.templates = lib.mapAttrs' (name: tmpl:
-      lib.nameValuePair name {
-        inherit (tmpl) path mode owner group;
-        content = let
-          raw = effectiveContent tmpl;
-          # Replace unified placeholders with akeyless placeholders
-          replaced = lib.foldlAttrs (acc: sName: _:
-            builtins.replaceStrings
-              [ (cfg.placeholder.${sName} or "") ]
-              [ (config.akeyless.placeholder.${vaultPath sName} or "") ]
-              acc
-          ) raw cfg.secrets;
-        in replaced;
+      let
+        raw = effectiveContent tmpl;
+        replaced = lib.foldlAttrs (acc: sName: _:
+          builtins.replaceStrings
+            [ (cfg.placeholder.${sName} or "") ]
+            [ (config.akeyless.placeholder.${vaultPath sName} or "") ]
+            acc
+        ) raw cfg.secrets;
+      in
+      lib.nameValuePair name ({
+        inherit (tmpl) path mode;
+        content = replaced;
       }
+      // lib.optionalAttrs (tmpl.owner != "") { inherit (tmpl) owner; }
+      // lib.optionalAttrs (tmpl.group != "") { inherit (tmpl) group; }
+      )
     ) cfg.templates;
   };
 }
