@@ -9,9 +9,10 @@ let
     if tmpl.file != null then builtins.readFile tmpl.file else tmpl.content;
 in {
   config = lib.mkIf sopsEnabled {
-    # Map unified secrets → sops.secrets
-    # Note: sops-nix home-manager module does NOT support owner/group/restartUnits/reloadUnits.
-    # Only include fields that sops-nix actually defines for the current platform.
+    # ── Map unified secrets → sops.secrets ────────────────────────────
+    # Note: sops-nix home-manager module does NOT support owner/group/restartUnits/reloadUnits/neededForUsers.
+    # NixOS module supports all of them. We conditionally include fields when non-default,
+    # which is safe on both platforms (unsupported fields simply won't be set).
     sops.secrets = lib.mapAttrs' (name: secret:
       lib.nameValuePair name ({
         inherit (secret) mode;
@@ -19,12 +20,14 @@ in {
       // lib.optionalAttrs (secret.path != "") { inherit (secret) path; }
       // lib.optionalAttrs (secret.owner != "") { inherit (secret) owner; }
       // lib.optionalAttrs (secret.group != "") { inherit (secret) group; }
+      // lib.optionalAttrs secret.neededForUsers { inherit (secret) neededForUsers; }
       // lib.optionalAttrs (secret.restartUnits != []) { inherit (secret) restartUnits; }
       // lib.optionalAttrs (secret.reloadUnits != []) { inherit (secret) reloadUnits; }
+      // lib.optionalAttrs (secret.sopsFile != null) { inherit (secret) sopsFile; }
       )
     ) cfg.secrets;
 
-    # Map unified templates → sops.templates
+    # ── Map unified templates → sops.templates ───────────────────────
     sops.templates = lib.mapAttrs' (name: tmpl:
       let
         raw = effectiveContent tmpl;
@@ -45,8 +48,8 @@ in {
       )
     ) cfg.templates;
 
-    # sops-specific backend config passthrough
+    # ── sops-specific backend config passthrough ─────────────────────
     sops.defaultSopsFile = lib.mkIf (cfg.sops.defaultSopsFile != null) cfg.sops.defaultSopsFile;
-    sops.defaultSopsFormat = lib.mkDefault "yaml";
+    sops.defaultSopsFormat = lib.mkDefault cfg.sops.defaultSopsFormat;
   };
 }

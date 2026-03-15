@@ -37,6 +37,21 @@ rec {
         default = "";
         description = "File group (empty = current group / root on NixOS).";
       };
+      uid = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = "File owner UID (takes precedence over owner name). akeyless backend only.";
+      };
+      gid = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = "File group GID (takes precedence over group name). akeyless backend only.";
+      };
+      neededForUsers = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Decrypt before user creation (NixOS only, akeyless + sops).";
+      };
       restartUnits = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [];
@@ -46,6 +61,11 @@ rec {
         type = lib.types.listOf lib.types.str;
         default = [];
         description = "Systemd units to reload when this secret changes.";
+      };
+      sopsFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        description = "Per-secret SOPS file override (sops backend only). Null = use defaultSopsFile.";
       };
     };
   };
@@ -77,6 +97,16 @@ rec {
       };
       owner = lib.mkOption { type = lib.types.str; default = ""; };
       group = lib.mkOption { type = lib.types.str; default = ""; };
+      uid = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = "File owner UID (akeyless backend only).";
+      };
+      gid = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = "File group GID (akeyless backend only).";
+      };
     };
   };
 

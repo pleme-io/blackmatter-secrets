@@ -69,14 +69,21 @@ in {
 
     # ── Backend-specific config ────────────────────────────────────
 
+    # ── sops backend config ─────────────────────────────────────────
     sops = {
       defaultSopsFile = lib.mkOption {
         type = lib.types.nullOr lib.types.path;
         default = null;
-        description = "Path to the SOPS-encrypted secrets file (sops backend only).";
+        description = "Path to the SOPS-encrypted secrets file.";
+      };
+      defaultSopsFormat = lib.mkOption {
+        type = lib.types.str;
+        default = "yaml";
+        description = "SOPS file format (yaml, json, binary, dotenv, ini).";
       };
     };
 
+    # ── akeyless backend config ──────────────────────────────────────
     akeyless = {
       pathPrefix = lib.mkOption {
         type = lib.types.str;
@@ -85,6 +92,31 @@ in {
           Prefix prepended to all secret names for Akeyless vault paths.
           "github/token" with prefix "/pleme" becomes "/pleme/github/token".
         '';
+      };
+      package = lib.mkOption {
+        type = lib.types.nullOr lib.types.package;
+        default = null;
+        description = "The akeyless-install-secrets package. Null = use akeyless-nix default.";
+      };
+      defaultSecretsMountPoint = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Directory for secret generations. Empty = use akeyless-nix default.";
+      };
+      defaultSymlinkPath = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Symlink path for current generation. Empty = use akeyless-nix default.";
+      };
+      keepGenerations = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = "Number of secret generations to keep. Null = use akeyless-nix default (2).";
+      };
+      ignorePasswd = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+        description = "Skip owner/group lookups (CI/dry-run). Null = use akeyless-nix default.";
       };
     };
   };
