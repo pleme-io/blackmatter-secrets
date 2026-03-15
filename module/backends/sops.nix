@@ -6,7 +6,8 @@ let
   sopsEnabled = cfg.enable && cfg.backend == "sops";
 in {
   config = lib.mkIf sopsEnabled {
-    # ── Map unified secrets → sops.secrets ────────────────────────────
+    # ── Map effective secrets → sops.secrets ─────────────────────────
+    # Uses cfg.effectiveSecrets (defaults already applied by default.nix).
     sops.secrets = lib.mapAttrs' (name: secret:
       lib.nameValuePair name ({
         inherit (secret) mode;
@@ -23,9 +24,9 @@ in {
       // lib.optionalAttrs (secret.key != "") { inherit (secret) key; }
       // lib.optionalAttrs (secret.format != "") { inherit (secret) format; }
       )
-    ) cfg.secrets;
+    ) cfg.effectiveSecrets;
 
-    # ── Map unified templates → sops.templates ───────────────────────
+    # ── Map effective templates → sops.templates ──────────────────────
     sops.templates = lib.mapAttrs' (name: tmpl:
       lib.nameValuePair name ({
         inherit (tmpl) mode;
@@ -43,7 +44,7 @@ in {
       // lib.optionalAttrs (tmpl.restartUnits != []) { inherit (tmpl) restartUnits; }
       // lib.optionalAttrs (tmpl.reloadUnits != []) { inherit (tmpl) reloadUnits; }
       )
-    ) cfg.templates;
+    ) cfg.effectiveTemplates;
 
     # ── sops top-level config passthrough ─────────────────────────────
     sops.defaultSopsFile = lib.mkIf (cfg.sops.defaultSopsFile != null) cfg.sops.defaultSopsFile;

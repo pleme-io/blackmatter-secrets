@@ -7,15 +7,39 @@
 #   blackmatter.components.secrets = {
 #     enable = true;
 #     backend = "akeyless";  # or "sops"
+#     defaults.mode = "0400";
+#     defaults.owner = "root";
+#     defaults.group = "root";
 #     secrets."github/token" = {
 #       path = "${homeDir}/.config/github/token";
-#       mode = "0600";
 #     };
 #   };
 { config, lib, pkgs, ... }:
 let
   slib = import ./lib.nix { inherit lib; };
   cfg = config.blackmatter.components.secrets;
+
+  # Apply defaults to a secret: merge user-specified values over defaults.
+  applySecretDefaults = name: secret: secret // {
+    mode = if secret.mode != "0600" then secret.mode
+           else if cfg.defaults.mode != "" then cfg.defaults.mode
+           else "0600";
+    owner = if secret.owner != "" then secret.owner else cfg.defaults.owner;
+    group = if secret.group != "" then secret.group else cfg.defaults.group;
+  };
+
+  # Apply defaults to a template.
+  applyTemplateDefaults = name: tmpl: tmpl // {
+    mode = if tmpl.mode != "0600" then tmpl.mode
+           else if cfg.defaults.templateMode != "" then cfg.defaults.templateMode
+           else "0600";
+    owner = if tmpl.owner != "" then tmpl.owner else cfg.defaults.templateOwner;
+    group = if tmpl.group != "" then tmpl.group else cfg.defaults.templateGroup;
+  };
+
+  # The effective secrets/templates with defaults applied.
+  effectiveSecrets = lib.mapAttrs applySecretDefaults cfg.secrets;
+  effectiveTemplates = lib.mapAttrs applyTemplateDefaults cfg.templates;
 in {
   imports = [
     ./backends/sops.nix
@@ -34,6 +58,43 @@ in {
         "akeyless" — fetch from Akeyless cloud API (audit trail, RBAC)
       '';
     };
+
+    # ── Defaults (reduce per-secret boilerplate) ──────────────────────
+
+    defaults = {
+      mode = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Default permission mode for all secrets. Empty = 0600.";
+      };
+      owner = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Default owner for all secrets. Empty = backend default.";
+      };
+      group = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Default group for all secrets. Empty = backend default.";
+      };
+      templateMode = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Default permission mode for all templates. Empty = 0600.";
+      };
+      templateOwner = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Default owner for all templates. Empty = backend default.";
+      };
+      templateGroup = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Default group for all templates. Empty = backend default.";
+      };
+    };
+
+    # ── Secret and template declarations ──────────────────────────────
 
     secrets = lib.mkOption {
       type = lib.types.attrsOf slib.secretSubmodule;
@@ -61,10 +122,48 @@ in {
       '';
     };
 
+    # ── Computed outputs (read-only) ──────────────────────────────────
+
     placeholder = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = {};
       description = "Auto-generated placeholders for template substitution. Do not set manually.";
+    };
+
+    effectiveSecrets = lib.mkOption {
+      type = lib.types.attrsOf slib.secretSubmodule;
+      default = {};
+      description = "Secrets with defaults applied. Read-only — used by backends.";
+    };
+
+    effectiveTemplates = lib.mkOption {
+      type = lib.types.attrsOf slib.templateSubmodule;
+      default = {};
+      description = "Templates with defaults applied. Read-only — used by backends.";
+    };
+
+    secretNames = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = "Read-only list of declared secret names.";
+    };
+
+    templateNames = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = "Read-only list of declared template names.";
+    };
+
+    secretCount = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      description = "Read-only count of declared secrets.";
+    };
+
+    templateCount = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      description = "Read-only count of declared templates.";
     };
 
     # ── Backend-specific config ────────────────────────────────────
@@ -111,8 +210,6 @@ in {
         default = null;
         description = "sops-install-secrets package. Null = sops-nix default.";
       };
-
-      # ── age encryption ──────────────────────────────────────────
       age = {
         keyFile = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
@@ -130,8 +227,6 @@ in {
           description = "Auto-generate age key if missing. Null = sops-nix default (false).";
         };
       };
-
-      # ── gnupg encryption ────────────────────────────────────────
       gnupg = {
         home = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
@@ -144,8 +239,6 @@ in {
           description = "SSH key paths to import as GPG keys. Null = sops-nix default.";
         };
       };
-
-      # ── HM-only options ─────────────────────────────────────────
       defaultSymlinkPath = lib.mkOption {
         type = lib.types.str;
         default = "";
@@ -193,14 +286,25 @@ in {
         default = null;
         description = "Skip owner/group lookups (CI/dry-run). Null = use akeyless-nix default.";
       };
+      templateEngine = lib.mkOption {
+        type = lib.types.str;
+        default = "placeholder";
+        description = "Template engine: placeholder (legacy hash-based) or igata (MiniJinja).";
+      };
     };
   };
 
   config = lib.mkIf cfg.enable {
-    # Generate unified placeholders — backend-agnostic
-    # Each backend's module replaces these with its native placeholders in templates
+    # ── Computed outputs ──────────────────────────────────────────────
     blackmatter.components.secrets.placeholder = lib.mapAttrs (name: _:
       "<BMSECRET:${builtins.hashString "sha256" name}:PLACEHOLDER>"
     ) cfg.secrets;
+
+    blackmatter.components.secrets.effectiveSecrets = effectiveSecrets;
+    blackmatter.components.secrets.effectiveTemplates = effectiveTemplates;
+    blackmatter.components.secrets.secretNames = lib.attrNames cfg.secrets;
+    blackmatter.components.secrets.templateNames = lib.attrNames cfg.templates;
+    blackmatter.components.secrets.secretCount = lib.length (lib.attrNames cfg.secrets);
+    blackmatter.components.secrets.templateCount = lib.length (lib.attrNames cfg.templates);
   };
 }

@@ -19,8 +19,9 @@ in {
     akeyless.defaultSymlinkPath = lib.mkIf (cfg.akeyless.defaultSymlinkPath != "") cfg.akeyless.defaultSymlinkPath;
     akeyless.keepGenerations = lib.mkIf (cfg.akeyless.keepGenerations != null) cfg.akeyless.keepGenerations;
     akeyless.ignorePasswd = lib.mkIf (cfg.akeyless.ignorePasswd != null) cfg.akeyless.ignorePasswd;
+    akeyless.templateEngine = lib.mkDefault cfg.akeyless.templateEngine;
 
-    # ── Map unified secrets → akeyless.secrets (with path prefix) ────
+    # ── Map effective secrets → akeyless.secrets (with path prefix) ──
     akeyless.secrets = lib.mapAttrs' (name: secret:
       lib.nameValuePair (vaultPath name) ({
         inherit (secret) mode;
@@ -34,9 +35,9 @@ in {
       // lib.optionalAttrs (secret.restartUnits != []) { inherit (secret) restartUnits; }
       // lib.optionalAttrs (secret.reloadUnits != []) { inherit (secret) reloadUnits; }
       )
-    ) cfg.secrets;
+    ) cfg.effectiveSecrets;
 
-    # ── Map unified templates → akeyless.templates ───────────────────
+    # ── Map effective templates → akeyless.templates ──────────────────
     akeyless.templates = lib.mapAttrs' (name: tmpl:
       lib.nameValuePair name ({
         inherit (tmpl) mode;
@@ -54,6 +55,6 @@ in {
       // lib.optionalAttrs (tmpl.uid != null) { inherit (tmpl) uid; }
       // lib.optionalAttrs (tmpl.gid != null) { inherit (tmpl) gid; }
       )
-    ) cfg.templates;
+    ) cfg.effectiveTemplates;
   };
 }
