@@ -19,20 +19,16 @@ let
   slib = import ./lib.nix { inherit lib; };
   cfg = config.blackmatter.components.secrets;
 
-  # Apply defaults to a secret: merge user-specified values over defaults.
-  applySecretDefaults = name: secret: secret // {
-    mode = if secret.mode != "0600" then secret.mode
-           else if cfg.defaults.mode != "" then cfg.defaults.mode
-           else "0600";
+  # Apply defaults to a secret.
+  # owner/group use empty string as "not set" sentinel — safe to override.
+  # mode uses lib.mkDefault in the submodule, so cfg.defaults.mode wins via mkDefault priority.
+  applySecretDefaults = _name: secret: secret // {
     owner = if secret.owner != "" then secret.owner else cfg.defaults.owner;
     group = if secret.group != "" then secret.group else cfg.defaults.group;
   };
 
   # Apply defaults to a template.
-  applyTemplateDefaults = name: tmpl: tmpl // {
-    mode = if tmpl.mode != "0600" then tmpl.mode
-           else if cfg.defaults.templateMode != "" then cfg.defaults.templateMode
-           else "0600";
+  applyTemplateDefaults = _name: tmpl: tmpl // {
     owner = if tmpl.owner != "" then tmpl.owner else cfg.defaults.templateOwner;
     group = if tmpl.group != "" then tmpl.group else cfg.defaults.templateGroup;
   };
@@ -62,11 +58,6 @@ in {
     # ── Defaults (reduce per-secret boilerplate) ──────────────────────
 
     defaults = {
-      mode = lib.mkOption {
-        type = lib.types.str;
-        default = "";
-        description = "Default permission mode for all secrets. Empty = 0600.";
-      };
       owner = lib.mkOption {
         type = lib.types.str;
         default = "";
@@ -76,11 +67,6 @@ in {
         type = lib.types.str;
         default = "";
         description = "Default group for all secrets. Empty = backend default.";
-      };
-      templateMode = lib.mkOption {
-        type = lib.types.str;
-        default = "";
-        description = "Default permission mode for all templates. Empty = 0600.";
       };
       templateOwner = lib.mkOption {
         type = lib.types.str;
@@ -133,37 +119,43 @@ in {
     effectiveSecrets = lib.mkOption {
       type = lib.types.attrsOf slib.secretSubmodule;
       default = {};
-      description = "Secrets with defaults applied. Read-only — used by backends.";
+      internal = true;
+      description = "Secrets with defaults applied. Computed — used by backends.";
     };
 
     effectiveTemplates = lib.mkOption {
       type = lib.types.attrsOf slib.templateSubmodule;
       default = {};
-      description = "Templates with defaults applied. Read-only — used by backends.";
+      internal = true;
+      description = "Templates with defaults applied. Computed — used by backends.";
     };
 
     secretNames = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [];
-      description = "Read-only list of declared secret names.";
+      internal = true;
+      description = "Computed list of declared secret names.";
     };
 
     templateNames = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [];
-      description = "Read-only list of declared template names.";
+      internal = true;
+      description = "Computed list of declared template names.";
     };
 
     secretCount = lib.mkOption {
       type = lib.types.int;
       default = 0;
-      description = "Read-only count of declared secrets.";
+      internal = true;
+      description = "Computed count of declared secrets.";
     };
 
     templateCount = lib.mkOption {
       type = lib.types.int;
       default = 0;
-      description = "Read-only count of declared templates.";
+      internal = true;
+      description = "Computed count of declared templates.";
     };
 
     # ── Backend-specific config ────────────────────────────────────
