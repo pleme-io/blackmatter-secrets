@@ -81,6 +81,81 @@ in {
         default = "yaml";
         description = "SOPS file format (yaml, json, binary, dotenv, ini).";
       };
+      defaultSopsKey = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Default key for all secrets. Null = use attr name. Empty string = whole file.";
+      };
+      validateSopsFiles = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+        description = "Check sops files exist at eval time. Null = sops-nix default (true).";
+      };
+      keepGenerations = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = "Secret generations to keep (0 = no pruning). Null = sops-nix default (1).";
+      };
+      log = lib.mkOption {
+        type = lib.types.nullOr (lib.types.listOf lib.types.str);
+        default = null;
+        description = "What to log: [\"keyImport\" \"secretChanges\"]. Null = sops-nix default (both).";
+      };
+      environment = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = {};
+        description = "Environment variables for sops-install-secrets.";
+      };
+      package = lib.mkOption {
+        type = lib.types.nullOr lib.types.package;
+        default = null;
+        description = "sops-install-secrets package. Null = sops-nix default.";
+      };
+
+      # ── age encryption ──────────────────────────────────────────
+      age = {
+        keyFile = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "Path to age key file. Null = sops-nix default.";
+        };
+        sshKeyPaths = lib.mkOption {
+          type = lib.types.nullOr (lib.types.listOf lib.types.str);
+          default = null;
+          description = "SSH key paths to convert to age keys. Null = sops-nix default.";
+        };
+        generateKey = lib.mkOption {
+          type = lib.types.nullOr lib.types.bool;
+          default = null;
+          description = "Auto-generate age key if missing. Null = sops-nix default (false).";
+        };
+      };
+
+      # ── gnupg encryption ────────────────────────────────────────
+      gnupg = {
+        home = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "GnuPG home directory. Null = sops-nix default.";
+        };
+        sshKeyPaths = lib.mkOption {
+          type = lib.types.nullOr (lib.types.listOf lib.types.str);
+          default = null;
+          description = "SSH key paths to import as GPG keys. Null = sops-nix default.";
+        };
+      };
+
+      # ── HM-only options ─────────────────────────────────────────
+      defaultSymlinkPath = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Symlink directory for secrets (HM only). Empty = sops-nix default.";
+      };
+      defaultSecretsMountPoint = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Generations storage directory (HM only). Empty = sops-nix default.";
+      };
     };
 
     # ── akeyless backend config ──────────────────────────────────────
