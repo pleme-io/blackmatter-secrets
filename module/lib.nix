@@ -55,7 +55,8 @@ rec {
     options = {
       path = lib.mkOption {
         type = lib.types.str;
-        description = "Target file path for rendered template.";
+        default = "";
+        description = "Target file path for rendered template. Empty = backend auto-generates.";
       };
       content = lib.mkOption {
         type = lib.types.str;

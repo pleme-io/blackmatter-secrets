@@ -14,8 +14,9 @@ in {
     # Only include fields that sops-nix actually defines for the current platform.
     sops.secrets = lib.mapAttrs' (name: secret:
       lib.nameValuePair name ({
-        inherit (secret) path mode;
+        inherit (secret) mode;
       }
+      // lib.optionalAttrs (secret.path != "") { inherit (secret) path; }
       // lib.optionalAttrs (secret.owner != "") { inherit (secret) owner; }
       // lib.optionalAttrs (secret.group != "") { inherit (secret) group; }
       // lib.optionalAttrs (secret.restartUnits != []) { inherit (secret) restartUnits; }
@@ -35,9 +36,10 @@ in {
         ) raw cfg.secrets;
       in
       lib.nameValuePair name ({
-        inherit (tmpl) path mode;
+        inherit (tmpl) mode;
         content = replaced;
       }
+      // lib.optionalAttrs (tmpl.path != "") { inherit (tmpl) path; }
       // lib.optionalAttrs (tmpl.owner != "") { inherit (tmpl) owner; }
       // lib.optionalAttrs (tmpl.group != "") { inherit (tmpl) group; }
       )
