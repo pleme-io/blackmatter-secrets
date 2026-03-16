@@ -1,27 +1,20 @@
 # akeyless backend — translates unified secret declarations to akeyless-nix options.
 #
-# Requires the akeyless-nix NixOS/HM module to be imported alongside
-# blackmatter-secrets for the akeyless.* options to exist.
-{ config, lib, options, ... }:
-# Guard: only activate when akeyless-nix options exist (NixOS with akeyless-nix imported).
-# On Darwin or NixOS without akeyless-nix, this module is a no-op.
-if !(options ? akeyless)
-then { }
-else
+# Requires the akeyless-nix module to be imported alongside blackmatter-secrets
+# so that the akeyless.* option namespace exists. Without it, NixOS will reject
+# the definitions even when mkIf condition is false.
+{ config, lib, ... }:
 let
   cfg = config.blackmatter.components.secrets;
   slib = import ../lib.nix { inherit lib; };
   akeylessEnabled = cfg.enable && cfg.backend == "akeyless";
   prefix = cfg.akeyless.pathPrefix;
 
-  # Prepend the vault path prefix to a secret name
-  # "github/token" → "/pleme/github/token"
   vaultPath = name: "${prefix}/${name}";
 in {
   config = lib.mkIf akeylessEnabled {
     akeyless.enable = true;
 
-    # ── Passthrough akeyless-nix configuration ───────────────────────
     akeyless.package = lib.mkIf (cfg.akeyless.package != null) cfg.akeyless.package;
     akeyless.defaultSecretsMountPoint = lib.mkIf (cfg.akeyless.defaultSecretsMountPoint != "") cfg.akeyless.defaultSecretsMountPoint;
     akeyless.defaultSymlinkPath = lib.mkIf (cfg.akeyless.defaultSymlinkPath != "") cfg.akeyless.defaultSymlinkPath;
@@ -29,7 +22,6 @@ in {
     akeyless.ignorePasswd = lib.mkIf (cfg.akeyless.ignorePasswd != null) cfg.akeyless.ignorePasswd;
     akeyless.templateEngine = lib.mkDefault cfg.akeyless.templateEngine;
 
-    # ── Map effective secrets → akeyless.secrets (with path prefix) ──
     akeyless.secrets = lib.mapAttrs' (name: secret:
       lib.nameValuePair (vaultPath name) ({
         inherit (secret) mode;
@@ -45,7 +37,6 @@ in {
       )
     ) cfg.effectiveSecrets;
 
-    # ── Map effective templates → akeyless.templates ──────────────────
     akeyless.templates = lib.mapAttrs' (name: tmpl:
       lib.nameValuePair name ({
         inherit (tmpl) mode;
