@@ -2,7 +2,12 @@
 #
 # Requires the akeyless-nix NixOS/HM module to be imported alongside
 # blackmatter-secrets for the akeyless.* options to exist.
-{ config, lib, ... }:
+{ config, lib, options, ... }:
+# Guard: only activate when akeyless-nix options exist (NixOS with akeyless-nix imported).
+# On Darwin or NixOS without akeyless-nix, this module is a no-op.
+if !(options ? akeyless)
+then { }
+else
 let
   cfg = config.blackmatter.components.secrets;
   slib = import ../lib.nix { inherit lib; };
