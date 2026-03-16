@@ -1,4 +1,7 @@
 # akeyless backend — translates unified secret declarations to akeyless-nix options.
+#
+# Requires the akeyless-nix NixOS/HM module to be imported alongside
+# blackmatter-secrets for the akeyless.* options to exist.
 { config, lib, ... }:
 let
   cfg = config.blackmatter.components.secrets;
