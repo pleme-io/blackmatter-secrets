@@ -1,0 +1,24 @@
+schema_version: 1
+manifest:
+  name: blackmatter-secrets
+  kind: BlackmatterComponent
+  archetype: blackmatter-component-hm-nixos-darwin
+  description: Unified secret management abstraction (sops + akeyless backends).
+dimensions:
+  vocabulary: [secrets, sops, akeyless, backend, template]
+  domains: [Nix]
+  stack: [HomeManager, NixOS, Darwin]
+  modules:
+    home_manager: module/
+    nixos: module/
+    darwin: module/
+  render:
+    produces:
+      - "decrypted secret files at declared paths"
+      - "templated config files composing secrets"
+  compliance:
+    satisfies: [secret-at-rest, secret-access-control]
+    participates: []
+  dag:
+    inputs: [nixpkgs, substrate]
+  attestation: { merkle_root: null, signed_by: null, producer: blackmatter-component-flake.nix }
