@@ -65,8 +65,11 @@ in {
     sops.gnupg.home = lib.mkIf (cfg.sops.gnupg.home != null) cfg.sops.gnupg.home;
     sops.gnupg.sshKeyPaths = lib.mkIf (cfg.sops.gnupg.sshKeyPaths != null) cfg.sops.gnupg.sshKeyPaths;
 
-    # ── HM-only config passthrough ────────────────────────────────────
-    sops.defaultSymlinkPath = lib.mkIf (cfg.sops.defaultSymlinkPath != "") cfg.sops.defaultSymlinkPath;
-    sops.defaultSecretsMountPoint = lib.mkIf (cfg.sops.defaultSecretsMountPoint != "") cfg.sops.defaultSecretsMountPoint;
+    # NOTE: sops.defaultSymlinkPath and sops.defaultSecretsMountPoint are
+    # home-manager-only sops-nix options and must be set directly in HM
+    # config — not here — because sops-nix's NixOS module does not declare
+    # them, and setting an undeclared option fails evaluation regardless of
+    # the mkIf gate. The abstraction's job is mapping secrets/templates;
+    # HM-specific passthroughs live with the user's HM config.
   };
 }
